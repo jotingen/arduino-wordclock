@@ -1,0 +1,5 @@
+#Ignore files with sensitive information
+WiFiCredentials.h
+
+#Ignore output directory
+output

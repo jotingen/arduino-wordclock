@@ -52,10 +52,10 @@
 //IT IS [HALF,QUARTER,TEN,TWENTY,FIVE] [PAST,TO] [ONE,TWELVE,TWO,THREE,FOUR,FIVE,SIX,NINE,SEVEN,EIGHT,TEN,ELEVEN] O'CLOCK
 #define WC_X 12
 #define WC_Y 10
-const uint32_t MILLIS_UPDATE_WC = 10;
+const uint32_t MILLIS_UPDATE_WC = 100;
 uint64_t millis_wc_update = 0; //Time in milliseconds from when the led strip was last updated
 CRGB leds[WC_Y * WC_X];
-uint8_t ledNdx = 0;
+uint32_t ledNdx = 0;
 uint8_t rgbw = 0;
 
 uint8_t ledMap[WC_Y][WC_X] = {
@@ -71,6 +71,32 @@ uint8_t ledMap[WC_Y][WC_X] = {
     {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}};
 
 uint8_t ledNoise[WC_Y][WC_X];
+
+bool wordMask[22];
+enum word_t{
+    WC_IT,
+    WC_IS,
+    WC_HALF,
+    WC_QUARTER,
+    WC_TEN,
+    WC_TWENTY,
+    WC_FIVE,
+    WC_PAST,
+    WC_TO,
+    WC_HOUR_ONE,
+    WC_HOUR_TWO,
+    WC_HOUR_THREE,
+    WC_HOUR_FOUR,
+    WC_HOUR_FIVE,
+    WC_HOUR_SIX,
+    WC_HOUR_NINE,
+    WC_HOUR_SEVEN,
+    WC_HOUR_EIGHT,
+    WC_HOUR_TEN,
+    WC_HOUR_ELEVEN,
+    WC_HOUR_TWELVE,
+    WC_OCLOCK
+};
 
 //LED Strip
 
@@ -104,6 +130,7 @@ void setup()
 
     //Set up and disable LED strip
     FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, WC_Y * WC_X);
+    FastLED.setMaxPowerInVoltsAndMilliamps(5, 1000);
     for (uint8_t i = 0; i < WC_Y * WC_X; i++)
     {
         leds[i] = CRGB::Black;
@@ -111,7 +138,8 @@ void setup()
     FastLED.show();
     Serial.println("LED strip reset");
 
-    //Iinitialize LED map
+    //Initialize LED map
+    CRGBArray<2> wc_led_it;
 
     connectToWiFi();
 
@@ -145,246 +173,40 @@ void loop()
     if ((millis_loop_start - millis_wc_update) >= MILLIS_UPDATE_WC)
     {
         // Get brightness from potentiometer
-        uint8_t brightness = analogRead(SENSOR_PIN)/4;
+        uint8_t min_brightness = 30;
+        uint8_t brightness = (analogRead(SENSOR_PIN)*(255-min_brightness))/1024+min_brightness;
+        FastLED.setBrightness(brightness);
 
-        //Noise
-        // Background noise for other LEDs
+        //Update background
+        // Rainbow walk
         for (uint16_t y = 0; y < WC_Y; y++)
         {
             for (uint16_t x = 0; x < WC_X; x++)
             {
-                leds[ledMap[y][x]].red = inoise8((x - 128) + ledNdx, (y) + ledNdx);
-                leds[ledMap[y][x]].green = inoise8((x) - ledNdx, (y + 128) - ledNdx);
-                leds[ledMap[y][x]].blue = inoise8((x) - ledNdx, (y) + ledNdx);
-                leds[ledMap[y][x]].fadeToBlackBy(240);
+                //Turn led index into radian
+                float ledNdx_rad = ((float) (ledNdx%1024) ) / 1024 * 2* 3.14;
+                //Generate offset for grid
+                uint32_t x_offset = x*8+WC_X*32;
+                uint32_t y_offset = y*8+WC_Y*32;
+                //Rotate grid
+                float x_rot = ((float) x_offset ) * cos(ledNdx_rad) - ((float) y_offset ) * sin(ledNdx_rad);
+                float y_rot = ((float) y_offset ) * cos(ledNdx_rad) + ((float) x_offset ) * sin(ledNdx_rad);
+                //Convert back to int
+                uint32_t x_rot_int = ((uint32_t) x_rot);
+                uint32_t y_rot_int = ((uint32_t) y_rot);
+                //Update LED array
+                leds[ledMap[y][x]].setHue(inoise16(x_rot_int,y_rot_int));
+                leds[ledMap[y][x]].fadeToBlackBy(192);
             }
         }
-        ledNdx++;
+        ledNdx+=1;
 
-        //IT
-        leds[ledMap[0][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-        leds[ledMap[0][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-        //IS
-        leds[ledMap[0][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-        leds[ledMap[0][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-        switch(rtc.getMinutes())
-        {
-            case 0 ... 4: break;
-            case 5 ... 9: //Five Past
-            leds[ledMap[2][7]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][8]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-            leds[ledMap[3][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-            case 10 ... 14: //Ten Past
-            leds[ledMap[1][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][11]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-            leds[ledMap[3][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-            case 15 ... 19: //Quarter Past
-            leds[ledMap[1][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][6]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][7]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-            leds[ledMap[3][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-            case 20 ... 29: //Twenty Past
-            leds[ledMap[2][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-            leds[ledMap[3][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-            case 30 ... 39: //Half Past
-            leds[ledMap[0][7]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[0][8]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[0][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[0][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-            leds[ledMap[3][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-            case 40 ... 44: //Twenty To
-            leds[ledMap[2][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-            leds[ledMap[3][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][6]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-            case 45 ... 49: //Quarter To
-            leds[ledMap[1][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][6]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][7]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-            leds[ledMap[3][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][6]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-            case 50 ... 54: //Ten To
-            leds[ledMap[1][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[1][11]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-            leds[ledMap[3][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][6]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-            case 55 ... 59: //Five To
-            leds[ledMap[2][7]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][8]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[2][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-            leds[ledMap[3][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][6]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-        }
-        //HOURS
-        switch ((rtc.getHours() + GMT) % 12)
-        {
-        case 0:
-            leds[ledMap[4][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[4][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[4][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[4][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[4][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[4][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 1:
-            leds[ledMap[3][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[3][11]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 2:
-            leds[ledMap[4][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[4][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[4][11]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 3:
-            leds[ledMap[5][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[5][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[5][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[5][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[5][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 4:
-            leds[ledMap[5][8]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[5][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[5][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[5][11]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 5:
-            leds[ledMap[6][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[6][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[6][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[6][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 6:
-            leds[ledMap[6][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[6][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[6][6]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 7:
-            leds[ledMap[7][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[7][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[7][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[7][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[7][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 8:
-            leds[ledMap[7][7]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[7][8]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[7][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[7][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[7][11]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 9:
-            leds[ledMap[6][8]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[6][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[6][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[6][11]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 10:
-            leds[ledMap[8][0]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[8][1]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[8][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-
-        case 11:
-            leds[ledMap[8][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[8][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[8][6]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[8][7]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[8][9]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            leds[ledMap[8][10]].setRGB(255,255,255).fadeToBlackBy(brightness);
-            break;
-        }
-
-        //O'CLOCK
-        leds[ledMap[9][2]].setRGB(255,255,255).fadeToBlackBy(brightness);
-        leds[ledMap[9][3]].setRGB(255,255,255).fadeToBlackBy(brightness);
-        leds[ledMap[9][4]].setRGB(255,255,255).fadeToBlackBy(brightness);
-        leds[ledMap[9][5]].setRGB(255,255,255).fadeToBlackBy(brightness);
-        leds[ledMap[9][6]].setRGB(255,255,255).fadeToBlackBy(brightness);
-        leds[ledMap[9][7]].setRGB(255,255,255).fadeToBlackBy(brightness);
-        leds[ledMap[9][8]].setRGB(255,255,255).fadeToBlackBy(brightness);
-
-        //Brightness
-
-        //for (uint16_t y = 0; y < WC_Y; y++)
-        //{
-        //    for (uint16_t x = 0; x < WC_X; x++)
-        //    {
-        //        leds[ledMap[y][x]].fadeToBlackBy(brightness);
-        //    }
-        //}
+        //Update Word Clock
+        updateWC();
 
         FastLED.show();
+
         millis_wc_update = millis_loop_start;
-        Serial.println(analogRead(SENSOR_PIN));
     }
 
 }
@@ -392,8 +214,240 @@ void loop()
 //Word Clock
 
 //Update the LED mask based on time of day
-void updateWCMask()
+void updateWC()
 {
+        //IT
+        setWCWord(WC_IT);
+
+        //IS
+        setWCWord(WC_IS);
+
+        switch(rtc.getMinutes())
+        {
+            case 0 ... 4: break;
+            case 5 ... 9: //Five Past
+        setWCWord(WC_FIVE);
+        setWCWord(WC_PAST);
+            break;
+            case 10 ... 14: //Ten Past
+        setWCWord(WC_TEN);
+        setWCWord(WC_PAST);
+            break;
+            case 15 ... 19: //Quarter Past
+        setWCWord(WC_QUARTER);
+        setWCWord(WC_PAST);
+            break;
+            case 20 ... 29: //Twenty Past
+        setWCWord(WC_TWENTY);
+        setWCWord(WC_PAST);
+            break;
+            case 30 ... 39: //Half Past
+        setWCWord(WC_HALF);
+        setWCWord(WC_PAST);
+            break;
+            case 40 ... 44: //Twenty To
+        setWCWord(WC_TWENTY);
+        setWCWord(WC_TO);
+            break;
+            case 45 ... 49: //Quarter To
+        setWCWord(WC_QUARTER);
+        setWCWord(WC_TO);
+            break;
+            case 50 ... 54: //Ten To
+        setWCWord(WC_TEN);
+        setWCWord(WC_TO);
+            break;
+            case 55 ... 59: //Five To
+        setWCWord(WC_FIVE);
+        setWCWord(WC_TO);
+            break;
+        }
+        //HOURS
+        switch ((rtc.getHours() + GMT) % 12)
+        {
+        case 0:
+        setWCWord(WC_HOUR_TWELVE);
+            break;
+        case 1:
+        setWCWord(WC_HOUR_ONE);
+            break;
+        case 2:
+        setWCWord(WC_HOUR_TWO);
+            break;
+        case 3:
+        setWCWord(WC_HOUR_THREE);
+            break;
+        case 4:
+        setWCWord(WC_HOUR_FOUR);
+            break;
+        case 5:
+        setWCWord(WC_HOUR_FIVE);
+            break;
+        case 6:
+        setWCWord(WC_HOUR_SIX);
+            break;
+        case 7:
+        setWCWord(WC_HOUR_SEVEN);
+            break;
+        case 8:
+        setWCWord(WC_HOUR_EIGHT);
+            break;
+        case 9:
+        setWCWord(WC_HOUR_NINE);
+            break;
+        case 10:
+        setWCWord(WC_HOUR_TEN);
+            break;
+        case 11:
+        setWCWord(WC_HOUR_ELEVEN);
+            break;
+        }
+
+        //O'CLOCK
+        setWCWord(WC_OCLOCK);
+}
+
+void setWCWord(word_t word)
+{
+
+    switch (word) {
+    case WC_IT:
+        leds[ledMap[0][0]].setRGB(255,255,255);
+        leds[ledMap[0][1]].setRGB(255,255,255);
+            break;
+    case WC_IS:
+        leds[ledMap[0][3]].setRGB(255,255,255);
+        leds[ledMap[0][4]].setRGB(255,255,255);
+            break;
+    case WC_FIVE:
+            leds[ledMap[2][7]].setRGB(255,255,255);
+            leds[ledMap[2][8]].setRGB(255,255,255);
+            leds[ledMap[2][9]].setRGB(255,255,255);
+            leds[ledMap[2][10]].setRGB(255,255,255);
+            break;
+    case WC_TEN:
+            leds[ledMap[1][9]].setRGB(255,255,255);
+            leds[ledMap[1][10]].setRGB(255,255,255);
+            leds[ledMap[1][11]].setRGB(255,255,255);
+            break;
+    case WC_QUARTER:
+            leds[ledMap[1][1]].setRGB(255,255,255);
+            leds[ledMap[1][2]].setRGB(255,255,255);
+            leds[ledMap[1][3]].setRGB(255,255,255);
+            leds[ledMap[1][4]].setRGB(255,255,255);
+            leds[ledMap[1][5]].setRGB(255,255,255);
+            leds[ledMap[1][6]].setRGB(255,255,255);
+            leds[ledMap[1][7]].setRGB(255,255,255);
+            break;
+    case WC_TWENTY:
+            leds[ledMap[2][0]].setRGB(255,255,255);
+            leds[ledMap[2][1]].setRGB(255,255,255);
+            leds[ledMap[2][2]].setRGB(255,255,255);
+            leds[ledMap[2][3]].setRGB(255,255,255);
+            leds[ledMap[2][4]].setRGB(255,255,255);
+            leds[ledMap[2][5]].setRGB(255,255,255);
+            break;
+    case WC_HALF:
+            leds[ledMap[0][7]].setRGB(255,255,255);
+            leds[ledMap[0][8]].setRGB(255,255,255);
+            leds[ledMap[0][9]].setRGB(255,255,255);
+            leds[ledMap[0][10]].setRGB(255,255,255);
+            break;
+    case WC_TO:
+            leds[ledMap[3][5]].setRGB(255,255,255);
+            leds[ledMap[3][6]].setRGB(255,255,255);
+            break;
+    case WC_PAST:
+            leds[ledMap[3][0]].setRGB(255,255,255);
+            leds[ledMap[3][1]].setRGB(255,255,255);
+            leds[ledMap[3][2]].setRGB(255,255,255);
+            leds[ledMap[3][3]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_ONE:
+            leds[ledMap[3][9]].setRGB(255,255,255);
+            leds[ledMap[3][10]].setRGB(255,255,255);
+            leds[ledMap[3][11]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_TWO:
+            leds[ledMap[4][9]].setRGB(255,255,255);
+            leds[ledMap[4][10]].setRGB(255,255,255);
+            leds[ledMap[4][11]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_THREE:
+            leds[ledMap[5][1]].setRGB(255,255,255);
+            leds[ledMap[5][2]].setRGB(255,255,255);
+            leds[ledMap[5][3]].setRGB(255,255,255);
+            leds[ledMap[5][4]].setRGB(255,255,255);
+            leds[ledMap[5][5]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_FOUR:
+            leds[ledMap[5][8]].setRGB(255,255,255);
+            leds[ledMap[5][9]].setRGB(255,255,255);
+            leds[ledMap[5][10]].setRGB(255,255,255);
+            leds[ledMap[5][11]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_FIVE:
+            leds[ledMap[6][0]].setRGB(255,255,255);
+            leds[ledMap[6][1]].setRGB(255,255,255);
+            leds[ledMap[6][2]].setRGB(255,255,255);
+            leds[ledMap[6][3]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_SIX:
+            leds[ledMap[6][4]].setRGB(255,255,255);
+            leds[ledMap[6][5]].setRGB(255,255,255);
+            leds[ledMap[6][6]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_SEVEN:
+            leds[ledMap[7][0]].setRGB(255,255,255);
+            leds[ledMap[7][1]].setRGB(255,255,255);
+            leds[ledMap[7][2]].setRGB(255,255,255);
+            leds[ledMap[7][3]].setRGB(255,255,255);
+            leds[ledMap[7][4]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_EIGHT:
+            leds[ledMap[7][7]].setRGB(255,255,255);
+            leds[ledMap[7][8]].setRGB(255,255,255);
+            leds[ledMap[7][9]].setRGB(255,255,255);
+            leds[ledMap[7][10]].setRGB(255,255,255);
+            leds[ledMap[7][11]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_NINE:
+            leds[ledMap[6][8]].setRGB(255,255,255);
+            leds[ledMap[6][9]].setRGB(255,255,255);
+            leds[ledMap[6][10]].setRGB(255,255,255);
+            leds[ledMap[6][11]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_TEN:
+            leds[ledMap[8][0]].setRGB(255,255,255);
+            leds[ledMap[8][1]].setRGB(255,255,255);
+            leds[ledMap[8][2]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_ELEVEN:
+            leds[ledMap[8][4]].setRGB(255,255,255);
+            leds[ledMap[8][5]].setRGB(255,255,255);
+            leds[ledMap[8][6]].setRGB(255,255,255);
+            leds[ledMap[8][7]].setRGB(255,255,255);
+            leds[ledMap[8][9]].setRGB(255,255,255);
+            leds[ledMap[8][10]].setRGB(255,255,255);
+            break;
+    case WC_HOUR_TWELVE:
+            leds[ledMap[4][0]].setRGB(255,255,255);
+            leds[ledMap[4][1]].setRGB(255,255,255);
+            leds[ledMap[4][2]].setRGB(255,255,255);
+            leds[ledMap[4][3]].setRGB(255,255,255);
+            leds[ledMap[4][4]].setRGB(255,255,255);
+            leds[ledMap[4][5]].setRGB(255,255,255);
+            break;
+    case WC_OCLOCK:
+        leds[ledMap[9][2]].setRGB(255,255,255);
+        leds[ledMap[9][3]].setRGB(255,255,255);
+        leds[ledMap[9][4]].setRGB(255,255,255);
+        leds[ledMap[9][5]].setRGB(255,255,255);
+        leds[ledMap[9][6]].setRGB(255,255,255);
+        leds[ledMap[9][7]].setRGB(255,255,255);
+        leds[ledMap[9][8]].setRGB(255,255,255);
+            break;
+    }
 }
 
 //RTC Helper Functions

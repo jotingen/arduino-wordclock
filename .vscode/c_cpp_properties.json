@@ -12,6 +12,7 @@
                 "C:/Users/jotin/Documents/Arduino/libraries/FastLED/src/**",
                 "C:/Users/jotin/Documents/Arduino/libraries/RTCZero/src/**",
                 "C:/Users/jotin/Documents/Arduino/libraries/WiFiNINA/src/**",
+                "C:/Users/jotin/Documents/Arduino/libraries/simpleDSTadjust/**",
                 "${workspaceRoot}/src"
             ],
             "forcedInclude": [

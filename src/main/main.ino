@@ -77,6 +77,7 @@ enum word_t
 {
     WC_IT,
     WC_IS,
+    WC_A,
     WC_HALF,
     WC_QUARTER,
     WC_TEN,
@@ -240,6 +241,7 @@ void updateWC()
         setWCWord(WC_PAST);
         break;
     case 15 ... 19: // Quarter Past
+        setWCWord(WC_A);
         setWCWord(WC_QUARTER);
         setWCWord(WC_PAST);
         break;
@@ -266,6 +268,7 @@ void updateWC()
         setWCWord(WC_TO);
         break;
     case 45 ... 49: // Quarter To
+        setWCWord(WC_A);
         setWCWord(WC_QUARTER);
         setWCWord(WC_TO);
         break;
@@ -332,6 +335,9 @@ void setWCWord(word_t word)
     case WC_IS:
         leds[ledMap[0][3]].setRGB(255, 255, 255);
         leds[ledMap[0][4]].setRGB(255, 255, 255);
+        break;
+    case WC_A:
+        leds[ledMap[0][8]].setRGB(255, 255, 255);
         break;
     case WC_FIVE:
         leds[ledMap[2][7]].setRGB(255, 255, 255);

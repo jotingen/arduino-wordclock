@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include <Arduino.h>
 
 #include <FastLED.h>
 #include <RTCZero.h>
@@ -119,8 +119,19 @@ uint64_t millis_wifi_start_connection = 0;          // Time in milliseconds from
 const uint32_t MILLIS_PRINTOUT_TIME = 60000; // Time in milliseconds between time print out
 uint64_t millis_time_printout = 0;           // Time in milliseconds from when the time was last printed out
 
-void setup()
-{
+
+void updateWC();
+void setWCWord(word_t word);
+void setRTCFromWiFi();
+uint32_t isDST();
+uint32_t dayOfWeek();
+void printTime();
+void printDate();
+bool connectedToWifi();
+void connectToWiFi();
+void print2digits(uint8_t number);
+
+void setup() {
     // Open serial communications and wait for port to open:
     Serial.begin(115200);
     // while (!Serial)
@@ -149,8 +160,7 @@ void setup()
     Serial.println("Setup Done");
 }
 
-void loop()
-{
+void loop() {
     uint64_t millis_loop_start = millis();
 
     // Printout current date/time

@@ -1,7 +1,0 @@
-{
-    "port": "COM3",
-    "board": "arduino:samd:nano_33_iot",
-    "sketch": "src\\main\\main.ino",
-    "programmer": "arduino:atmel_ice",
-    "output": "output"
-}
